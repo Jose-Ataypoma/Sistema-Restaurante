@@ -1,5 +1,5 @@
 import React from 'react'
-import { Order, OrderItem } from '@types/index'
+import { Order, OrderItem } from '@app-types/index'
 import { ORDER_STATUS } from '@utils/constants'
 
 interface OrderPanelProps {

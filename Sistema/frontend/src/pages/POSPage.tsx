@@ -1,14 +1,19 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Sidebar } from '@components/Sidebar'
 import { Header } from '@components/Header'
 import { ProductCard } from '@components/ProductCard'
 import { OrderPanel } from '@components/OrderPanel'
-import { Product, Category, Order, OrderItem } from '@types/index'
+import { Product, Category, Order, OrderItem, Table } from '@app-types/index'
+import { API_BASE_URL } from '@utils/constants'
+import { useNavigate } from 'react-router-dom'
 
 const POSPage: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('1')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null)
   const [currentOrder, setCurrentOrder] = useState<Order>({
-    id: 'ORD-001',
+    id: `ORD-${Date.now()}`,
     items: [],
     subtotal: 0,
     igv: 0,
@@ -16,28 +21,43 @@ const POSPage: React.FC = () => {
     status: 'pending',
     createdAt: new Date().toISOString(),
   })
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
-  const categories: Category[] = [
-    { id: '1', name: 'Entradas', icon: '🥗', color: '#10b981' },
-    { id: '2', name: 'Fondos', icon: '🍚', color: '#b833ff' },
-    { id: '3', name: 'Bebidas', icon: '🥤', color: '#00ffff' },
-    { id: '4', name: 'Postres', icon: '🍰', color: '#fbbf24' },
-  ]
+  useEffect(() => {
+    const table = localStorage.getItem('selectedTable')
+    if (!table) {
+      navigate('/tables')
+      return
+    }
+    setSelectedTable(JSON.parse(table))
+    loadProducts()
+  }, [navigate])
 
-  const products: Product[] = [
-    { id: '1', name: 'Ceviche de Pescado', description: 'Fresco y delicioso', price: 25.90, categoryId: '1', available: true, createdAt: new Date().toISOString() },
-    { id: '2', name: 'Causita Limeña', description: 'Tradicional peruana', price: 18.50, categoryId: '1', available: true, createdAt: new Date().toISOString() },
-    { id: '3', name: 'Anticuchos', description: 'Brochetas de carne', price: 22.00, categoryId: '1', available: true, createdAt: new Date().toISOString() },
-    { id: '4', name: 'Lomo Saltado', description: 'Nuestro clásico', price: 32.00, categoryId: '2', available: true, createdAt: new Date().toISOString() },
-    { id: '5', name: 'Ají de Gallina', description: 'Cremoso y sabroso', price: 28.50, categoryId: '2', available: true, createdAt: new Date().toISOString() },
-    { id: '6', name: 'Arroz con Pollo', description: 'Completo y nutritivo', price: 24.00, categoryId: '2', available: true, createdAt: new Date().toISOString() },
-    { id: '7', name: 'Coca Cola', description: 'Botella 500ml', price: 4.00, categoryId: '3', available: true, createdAt: new Date().toISOString() },
-    { id: '8', name: 'Cerveza Cristal', description: 'Botella 355ml', price: 8.50, categoryId: '3', available: true, createdAt: new Date().toISOString() },
-    { id: '9', name: 'Agua Mineral', description: 'Sin gas 500ml', price: 2.50, categoryId: '3', available: true, createdAt: new Date().toISOString() },
-    { id: '10', name: 'Tres Leches', description: 'Postre clásico', price: 12.00, categoryId: '4', available: true, createdAt: new Date().toISOString() },
-    { id: '11', name: 'Chocotorta', description: 'Chocolate puro', price: 11.50, categoryId: '4', available: false, createdAt: new Date().toISOString() },
-    { id: '12', name: 'Mazamorra Morada', description: 'Andina y deliciosa', price: 9.00, categoryId: '4', available: true, createdAt: new Date().toISOString() },
-  ]
+  const loadProducts = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products`)
+      const data = await res.json()
+      if (data.success) {
+        setProducts(data.data)
+        const categoryMap = new Map<string, Category>()
+        data.data.forEach((p: Product) => {
+          if (!categoryMap.has(p.categoryId)) {
+            categoryMap.set(p.categoryId, { id: p.categoryId, name: p.categoryId })
+          }
+        })
+        const uniqueCategories = Array.from(categoryMap.values())
+        setCategories(uniqueCategories)
+        if (uniqueCategories.length > 0) {
+          setSelectedCategory(uniqueCategories[0].id)
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar productos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredProducts = products.filter((p) => p.categoryId === selectedCategory)
 
@@ -89,32 +109,72 @@ const POSPage: React.FC = () => {
     }
   }
 
+  const handleSendToKitchen = async () => {
+    if (!selectedTable || currentOrder.items.length === 0) {
+      alert('Selecciona una mesa y agrega productos')
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableId: selectedTable.id,
+          items: currentOrder.items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            subtotal: item.subtotal,
+            observations: item.observations,
+          })),
+          subtotal: currentOrder.subtotal,
+          igv: currentOrder.igv,
+          total: currentOrder.total,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        localStorage.removeItem('selectedTable')
+        navigate('/tables')
+      }
+    } catch (error) {
+      console.error('Error al enviar orden:', error)
+      alert('Error al enviar la orden')
+    }
+  }
+
+  if (loading || !selectedTable) {
+    return (
+      <div className="flex h-screen bg-dark items-center justify-center">
+        <p className="text-white text-xl">Cargando...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen bg-dark">
       <Sidebar />
       <div className="flex-1 ml-64 flex flex-col overflow-hidden">
-        <Header title="Punto de Venta (POS)" />
+        <Header title={`Punto de Venta (POS) - Mesa ${selectedTable.number}`} />
         <div className="flex-1 overflow-hidden flex gap-4 p-4">
-          {/* Main Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Categorías */}
-            <div className="flex gap-2 mb-4 pb-4 border-b border-dark-border">
+            <div className="flex gap-2 mb-4 pb-4 border-b border-dark-border overflow-x-auto">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                  className={`px-6 py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
                     selectedCategory === cat.id
                       ? 'bg-neon-purple text-black shadow-glow'
                       : 'bg-dark-card text-gray-300 border border-dark-border hover:border-neon-purple'
                   }`}
                 >
-                  {cat.icon} {cat.name}
+                  {cat.name}
                 </button>
               ))}
             </div>
 
-            {/* Productos Grid */}
             <div className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
                 {filteredProducts.map((product) => (
@@ -124,14 +184,13 @@ const POSPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Order Panel - Right Sidebar */}
           <div className="w-80 bg-dark-card rounded-lg border border-dark-border overflow-hidden">
             <OrderPanel
               order={currentOrder}
               onRemoveItem={handleRemoveItem}
               onUpdateQuantity={handleUpdateQuantity}
-              onSendToKitchen={() => console.log('Enviado a cocina')}
-              onPay={() => console.log('Ir a pago')}
+              onSendToKitchen={handleSendToKitchen}
+              onPay={() => navigate('/cash')}
             />
           </div>
         </div>

@@ -1,84 +1,69 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Sidebar } from '@components/Sidebar'
 import { Header } from '@components/Header'
 import { KitchenOrderCard } from '@components/KitchenOrderCard'
-import { Order } from '@types/index'
+import { Order } from '@app-types/index'
+import { API_BASE_URL, WS_URL } from '@utils/constants'
+import { io, Socket } from 'socket.io-client'
 
 const KitchenPage: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: 'ORD-001',
-      items: [
-        {
-          id: '1',
-          productId: '1',
-          product: { id: '1', name: 'Ceviche de Pescado', price: 25.90, categoryId: '1', available: true, createdAt: new Date().toISOString() },
-          quantity: 2,
-          unitPrice: 25.90,
-          subtotal: 51.80,
-          observations: 'Extra limón',
-        },
-        {
-          id: '2',
-          productId: '4',
-          product: { id: '4', name: 'Lomo Saltado', price: 32.00, categoryId: '2', available: true, createdAt: new Date().toISOString() },
-          quantity: 1,
-          unitPrice: 32.00,
-          subtotal: 32.00,
-        },
-      ],
-      subtotal: 83.80,
-      igv: 15.08,
-      total: 98.88,
-      status: 'pending',
-      createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
-    },
-    {
-      id: 'ORD-002',
-      items: [
-        {
-          id: '3',
-          productId: '5',
-          product: { id: '5', name: 'Ají de Gallina', price: 28.50, categoryId: '2', available: true, createdAt: new Date().toISOString() },
-          quantity: 3,
-          unitPrice: 28.50,
-          subtotal: 85.50,
-          observations: 'Sin ají picante',
-        },
-      ],
-      subtotal: 85.50,
-      igv: 15.39,
-      total: 100.89,
-      status: 'cooking',
-      createdAt: new Date(Date.now() - 12 * 60000).toISOString(),
-    },
-    {
-      id: 'ORD-003',
-      items: [
-        {
-          id: '4',
-          productId: '2',
-          product: { id: '2', name: 'Causita Limeña', price: 18.50, categoryId: '1', available: true, createdAt: new Date().toISOString() },
-          quantity: 2,
-          unitPrice: 18.50,
-          subtotal: 37.00,
-        },
-      ],
-      subtotal: 37.00,
-      igv: 6.66,
-      total: 43.66,
-      status: 'pending',
-      createdAt: new Date(Date.now() - 25 * 60000).toISOString(),
-    },
-  ])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [socket, setSocket] = useState<Socket | null>(null)
 
-  const handleStatusChange = (orderId: string, newStatus: 'cooking' | 'ready') => {
-    setOrders(
-      orders.map((order) => (order.id === orderId ? { ...order, status: newStatus as any } : order))
-    )
+  useEffect(() => {
+    loadOrders()
+    const newSocket = io(WS_URL)
+    setSocket(newSocket)
+
+    newSocket.on('new_order', (order: Order) => {
+      setOrders((prev) => [order, ...prev])
+    })
+
+    newSocket.on('order_updated', (data: { orderId: string; status: string }) => {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === data.orderId ? { ...o, status: data.status as any } : o))
+      )
+    })
+
+    return () => {
+      newSocket.disconnect()
+    }
+  }, [])
+
+  const loadOrders = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders`)
+      const data = await res.json()
+      if (data.success) {
+        setOrders(data.data)
+      }
+    } catch (error) {
+      console.error('Error al cargar órdenes:', error)
+    }
+  }
+
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus as any } : o))
+        )
+      }
+    } catch (error) {
+      console.error('Error al actualizar orden:', error)
+    }
   }
 
   const pendingOrders = orders.filter((o) => o.status === 'pending' || o.status === 'cooking')
+  const pending = orders.filter((o) => o.status === 'pending').length
+  const cooking = orders.filter((o) => o.status === 'cooking').length
+  const ready = orders.filter((o) => o.status === 'ready').length
 
   return (
     <div className="flex h-screen bg-dark">
@@ -91,21 +76,15 @@ const KitchenPage: React.FC = () => {
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-warning-yellow bg-opacity-20 border-2 border-warning-yellow rounded-lg p-4">
                 <p className="text-sm text-gray-300">Pendientes</p>
-                <p className="text-3xl font-bold text-warning-yellow mt-1">
-                  {orders.filter((o) => o.status === 'pending').length}
-                </p>
+                <p className="text-3xl font-bold text-warning-yellow mt-1">{pending}</p>
               </div>
               <div className="bg-neon-purple bg-opacity-20 border-2 border-neon-purple rounded-lg p-4">
                 <p className="text-sm text-gray-300">Preparando</p>
-                <p className="text-3xl font-bold text-neon-purple mt-1">
-                  {orders.filter((o) => o.status === 'cooking').length}
-                </p>
+                <p className="text-3xl font-bold text-neon-purple mt-1">{cooking}</p>
               </div>
               <div className="bg-success-green bg-opacity-20 border-2 border-success-green rounded-lg p-4">
                 <p className="text-sm text-gray-300">Listos</p>
-                <p className="text-3xl font-bold text-success-green mt-1">
-                  {orders.filter((o) => o.status === 'ready').length}
-                </p>
+                <p className="text-3xl font-bold text-success-green mt-1">{ready}</p>
               </div>
             </div>
 
@@ -124,7 +103,7 @@ const KitchenPage: React.FC = () => {
               <div className="flex flex-col items-center justify-center h-96 bg-dark-card rounded-lg border border-dark-border">
                 <div className="text-6xl mb-4">✅</div>
                 <p className="text-xl font-bold text-white">Todas las órdenes completadas</p>
-                <p className="text-gray-400 text-sm mt-2">Buen trabajo chef!</p>
+                <p className="text-gray-400 text-sm mt-2">¡Buen trabajo chef!</p>
               </div>
             )}
           </div>

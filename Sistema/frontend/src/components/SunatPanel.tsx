@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { SunatDocument } from '@types/index'
+import { SunatDocument } from '@app-types/index'
 
 interface SunatPanelProps {
   orderId: string

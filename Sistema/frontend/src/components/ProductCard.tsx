@@ -1,5 +1,5 @@
 import React from 'react'
-import { Product } from '@types/index'
+import { Product } from '@app-types/index'
 
 interface ProductCardProps {
   product: Product

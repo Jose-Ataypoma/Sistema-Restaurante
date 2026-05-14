@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Table } from '@types/index'
+import { Table } from '@app-types/index'
 import { TABLE_STATUS } from '@utils/constants'
 
 interface TableMapProps {

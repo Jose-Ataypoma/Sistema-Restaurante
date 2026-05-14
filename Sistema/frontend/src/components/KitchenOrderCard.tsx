@@ -1,5 +1,5 @@
 import React from 'react'
-import { Order } from '@types/index'
+import { Order } from '@app-types/index'
 
 interface KitchenOrderCardProps {
   order: Order

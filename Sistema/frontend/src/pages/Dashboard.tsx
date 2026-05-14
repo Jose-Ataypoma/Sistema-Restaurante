@@ -96,7 +96,7 @@ const Dashboard: React.FC = () => {
                 <h2 className="text-lg font-bold text-white mb-4">Métodos de Pago</h2>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie data={paymentData} cx="50%" cy="50%" labelLine={false} label>
+                    <Pie data={paymentData} cx="50%" cy="50%" dataKey="value" nameKey="name" labelLine={false} label>
                       {paymentData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}

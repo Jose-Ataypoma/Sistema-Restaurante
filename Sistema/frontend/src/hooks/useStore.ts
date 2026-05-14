@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { User, Order, Table, OrderItem } from '@types/index'
+import { User, Order, Table, OrderItem } from '@app-types/index'
 
 interface AuthState {
   user: User | null
