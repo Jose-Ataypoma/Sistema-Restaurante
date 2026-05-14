@@ -1,0 +1,52 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+* {
+  @apply transition-colors duration-200;
+}
+
+body {
+  @apply bg-dark text-white;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-bg;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-border rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-neon-purple;
+}
+
+/* Animaciones */
+@keyframes glow {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(184, 51, 255, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(184, 51, 255, 1);
+  }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Botones */
+button {
+  @apply active:scale-95;
+}
+
+/* Input */
+input, textarea, select {
+  @apply bg-dark-bg border border-dark-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-neon-purple focus:shadow-glow;
+}
